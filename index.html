@@ -184,7 +184,7 @@
       </div>
       <button class="save-level" id="settingsSave" type="button">Salvar nível</button>
       <button class="save-level blind-game-button" id="blindGameButton" type="button">A velha cega</button>
-      <button class="save-level blind-game-button" id="classicGameButton" type="button" hidden>Velha nunca mais</button>
+      <button class="save-level blind-game-button" id="classicGameButton" type="button">Velha nunca mais</button>
     </section>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -586,7 +586,6 @@
           cell.setAttribute('aria-label', index === nextExpiringIndex ? `${label}, peça mais antiga que sairá na próxima jogada` : label);
         });
         rulesGameTitle.textContent = blindMode ? 'A velha cega' : 'Velha nunca mais!';
-        classicGameButton.hidden = !blindMode;
         rulesDescription.textContent = blindMode
           ? `Jogo tradicional ${mode === 'computer' ? 'contra Mestre Quin' : 'para duas pessoas'}: cada peça fica visível por 0,5 segundo e depois se apaga.`
           : 'Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?';
