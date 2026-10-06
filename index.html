@@ -211,6 +211,7 @@
       let order = { X: [], O: [] };
       let mode = 'computer';
       let player = 'O';
+      let lastStarter = { computer: 'O', local: null };
       let gameOver = false;
       let isThinking = false;
       let computerTimer = 0;
@@ -526,6 +527,23 @@
         if (gameOver) restartTimer = setTimeout(newGame, 5000);
       }
 
+      function startFreshGame(nextMode) {
+        const previousStarter = lastStarter[nextMode];
+        const firstMark = previousStarter === null
+          ? (nextMode === 'computer' ? 'O' : 'X')
+          : (previousStarter === 'O' ? 'X' : 'O');
+        lastStarter[nextMode] = firstMark;
+        board = Array(9).fill(null);
+        order = { X: [], O: [] };
+        player = firstMark;
+        gameOver = false;
+        isThinking = nextMode === 'computer' && firstMark === 'X';
+        winningLine = [];
+        render();
+        if (isThinking) computerTimer = setTimeout(computerMove, 2000);
+        return firstMark;
+      }
+
       function setMode(nextMode) {
         if (nextMode === mode) return;
         clearTimeout(computerTimer);
@@ -533,13 +551,7 @@
         restartTimer = 0;
         computerTimer = 0;
         mode = nextMode;
-        board = Array(9).fill(null);
-        order = { X: [], O: [] };
-        player = mode === 'computer' ? 'O' : 'X';
-        gameOver = false;
-        isThinking = false;
-        winningLine = [];
-        render();
+        startFreshGame(mode);
         showToast(mode === 'computer' ? 'Modo contra Mestre Quin.' : 'Modo para duas pessoas neste celular.');
       }
 
@@ -548,14 +560,12 @@
         clearTimeout(restartTimer);
         restartTimer = 0;
         computerTimer = 0;
-        board = Array(9).fill(null);
-        order = { X: [], O: [] };
-        player = mode === 'computer' ? 'O' : 'X';
-        gameOver = false;
-        isThinking = false;
-        winningLine = [];
-        render();
-        showToast(mode === 'computer' ? 'Nova partida! Eu começo com O.' : 'Nova partida! Jogador X começa.');
+        const firstMark = startFreshGame(mode);
+        if (mode === 'computer') {
+          showToast(firstMark === 'X' ? 'Nova partida! Mestre Quin começa com X.' : 'Nova partida! Você começa com O.');
+        } else {
+          showToast(`Nova partida! Jogador ${firstMark} começa.`);
+        }
         playTone(520, 0.08);
       }
 
