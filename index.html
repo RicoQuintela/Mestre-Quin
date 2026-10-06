@@ -106,7 +106,7 @@
     .settings-layout { width: min(100%, 420px); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overscroll-behavior: contain; }
     .settings-layout > .bonus-section { flex: 0 0 auto; width: calc(100% - 38px); align-self: center; display: flex; flex-direction: column; gap: 8px; }
     .bonus-heading { color: var(--yellow); font-size: .82rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
-    .bonus-section > #blindGameButton { width: 100%; min-height: 46px; margin-top: 0; }
+    .bonus-section > .bonus-game-button { width: 100%; min-height: 46px; margin-top: 0; }
     .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
     .settings-header h2 { margin: 0; color: var(--yellow); font-size: 1.15rem; letter-spacing: .08em; }
     .settings-close { width: 38px; height: 38px; border: 1px solid #008CFF; border-radius: 50%; background: #080b12; color: var(--blue-soft); font-size: 1.35rem; cursor: pointer; }
@@ -192,7 +192,8 @@
       </section>
       <div class="bonus-section">
         <div class="bonus-heading">Bônus:</div>
-        <button class="save-level blind-game-button" id="blindGameButton" type="button">A velha cega</button>
+        <button class="save-level blind-game-button bonus-game-button" id="blindGameButton" type="button">A velha cega</button>
+        <button class="save-level blind-game-button bonus-game-button" id="alwaysGameButton" type="button">A Velha de Sempre</button>
       </div>
     </div>
   </div>
@@ -221,16 +222,19 @@
       const settingsClose = document.getElementById('settingsClose');
       const settingsSave = document.getElementById('settingsSave');
       const blindGameButton = document.getElementById('blindGameButton');
+      const alwaysGameButton = document.getElementById('alwaysGameButton');
       const classicGameButton = document.getElementById('classicGameButton');
       const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
+      const difficultyEasyHint = document.querySelector('#difficultyEasy span');
       const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
       const cells = [];
       let board = Array(9).fill(null);
       let order = { X: [], O: [] };
       let mode = 'computer';
       let blindMode = false;
+      let traditionalMode = false;
       let player = 'O';
-      let lastStarter = { computer: 'O', local: null, blindComputer: 'O', blindLocal: null };
+      let lastStarter = { computer: 'O', local: null, blindComputer: 'O', blindLocal: null, traditionalComputer: 'O', traditionalLocal: null };
       let gameOver = false;
       let isDraw = false;
       let isThinking = false;
@@ -241,7 +245,7 @@
       let blindPieceTimers = Array(9).fill(0);
       let winnerFlashTimer = 0;
       let winningLine = [];
-      let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 }, blindComputer: { X: 0, O: 0 }, blindLocal: { X: 0, O: 0 } };
+      let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 }, blindComputer: { X: 0, O: 0 }, blindLocal: { X: 0, O: 0 }, traditionalComputer: { X: 0, O: 0 }, traditionalLocal: { X: 0, O: 0 } };
       let toastTimer = 0;
       let soundOn = true;
       let audioContext = null;
@@ -359,7 +363,7 @@
         position[index] = mark;
         history[mark].push(index);
         let vanished = false;
-        if (!blindMode && history[mark].length > 3) {
+        if (!blindMode && !traditionalMode && history[mark].length > 3) {
           const oldestIndex = history[mark].shift();
           if (position[oldestIndex] === mark) position[oldestIndex] = null;
           vanished = true;
@@ -562,8 +566,9 @@
       }
 
       function currentScoreKey(selectedMode = mode) {
-        if (!blindMode) return selectedMode;
-        return selectedMode === 'computer' ? 'blindComputer' : 'blindLocal';
+        if (blindMode) return selectedMode === 'computer' ? 'blindComputer' : 'blindLocal';
+        if (traditionalMode) return selectedMode === 'computer' ? 'traditionalComputer' : 'traditionalLocal';
+        return selectedMode;
       }
 
       function revealPieceTemporarily(index) {
@@ -578,7 +583,7 @@
       }
 
       function render() {
-        const nextExpiringIndex = !blindMode && !gameOver && difficulty === 'easy' && order[player].length >= 3
+        const nextExpiringIndex = !blindMode && !traditionalMode && !gameOver && difficulty === 'easy' && order[player].length >= 3
           ? order[player][0]
           : -1;
         const revealWinningBoard = blindMode && gameOver && !isDraw && winningLine.length === 3;
@@ -594,10 +599,17 @@
           const label = `Casa ${index + 1}, ${markDescription}`;
           cell.setAttribute('aria-label', index === nextExpiringIndex ? `${label}, peça mais antiga que sairá na próxima jogada` : label);
         });
-        rulesGameTitle.textContent = blindMode ? 'A velha cega' : 'Velha nunca mais!';
+        rulesGameTitle.textContent = blindMode ? 'A velha cega' : traditionalMode ? 'A Velha de Sempre' : 'Velha nunca mais!';
         rulesDescription.textContent = blindMode
           ? `Jogo tradicional ${mode === 'computer' ? 'contra Mestre Quin' : 'para duas pessoas'}: cada peça fica visível por 0,5 segundo e depois se apaga.`
-          : 'Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?';
+          : traditionalMode
+            ? `Jogo da velha tradicional ${mode === 'computer' ? 'contra Mestre Quin' : 'para duas pessoas'}: as peças permanecem no tabuleiro; vence quem alinhar três.`
+            : 'Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?';
+        if (difficultyEasyHint) {
+          difficultyEasyHint.textContent = blindMode || traditionalMode
+            ? 'Jogo mais simples. O Mestre Quin faz jogadas menos estratégicas.'
+            : 'Jogo mais simples. A peça mais antiga que sairá na próxima jogada fica contornada de amarelo.';
+        }
         turnMark.textContent = player;
         turnText.textContent = isDraw ? 'Deu velha!' : (gameOver
           ? (mode === 'computer' ? (player === 'O' ? 'Eu venci!' : 'Mestre Quin venceu!') : `Jogador ${player} venceu!`)
@@ -631,7 +643,7 @@
           scheduleAutoRestart();
           return;
         }
-        if (blindMode && board.every(Boolean)) {
+        if ((blindMode || traditionalMode) && board.every(Boolean)) {
           gameOver = true;
           isDraw = true;
           showToast('Deu velha! Empate.');
@@ -671,7 +683,7 @@
           wins[currentScoreKey()].X += 1;
           playTone(660, 0.24, 'triangle');
           showToast('🤖 Mestre Quin venceu!');
-        } else if (blindMode && board.every(Boolean)) {
+        } else if ((blindMode || traditionalMode) && board.every(Boolean)) {
           gameOver = true;
           isDraw = true;
           showToast('Deu velha! Empate.');
@@ -689,7 +701,11 @@
         blindPieceTimers.forEach(timer => window.clearTimeout(timer));
         blindPieceTimers = Array(9).fill(0);
         blindVisibleUntil = Array(9).fill(0);
-        const starterKey = blindMode ? (nextMode === 'computer' ? 'blindComputer' : 'blindLocal') : nextMode;
+        const starterKey = blindMode
+          ? (nextMode === 'computer' ? 'blindComputer' : 'blindLocal')
+          : traditionalMode
+            ? (nextMode === 'computer' ? 'traditionalComputer' : 'traditionalLocal')
+            : nextMode;
         const previousStarter = lastStarter[starterKey];
         const firstMark = previousStarter === null
           ? (nextMode === 'computer' ? 'O' : 'X')
@@ -718,7 +734,9 @@
         startFreshGame(mode);
         showToast(blindMode
           ? (mode === 'computer' ? 'A velha cega contra Mestre Quin.' : 'A velha cega para duas pessoas.')
-          : (mode === 'computer' ? 'Modo contra Mestre Quin.' : 'Modo para duas pessoas neste celular.'));
+          : traditionalMode
+            ? (mode === 'computer' ? 'A Velha de Sempre contra Mestre Quin.' : 'A Velha de Sempre para duas pessoas.')
+            : (mode === 'computer' ? 'Modo contra Mestre Quin.' : 'Modo para duas pessoas neste celular.'));
       }
 
       function newGame() {
@@ -789,8 +807,20 @@
         computerTimer = 0;
         restartTimer = 0;
         blindMode = true;
+        traditionalMode = false;
         startFreshGame(mode);
         showToast(mode === 'computer' ? 'A velha cega contra Mestre Quin.' : 'A velha cega para duas pessoas.');
+      });
+      alwaysGameButton.addEventListener('click', () => {
+        closeSettings();
+        clearTimeout(computerTimer);
+        clearTimeout(restartTimer);
+        computerTimer = 0;
+        restartTimer = 0;
+        blindMode = false;
+        traditionalMode = true;
+        startFreshGame(mode);
+        showToast(mode === 'computer' ? 'A Velha de Sempre contra Mestre Quin.' : 'A Velha de Sempre para duas pessoas.');
       });
       classicGameButton.addEventListener('click', () => {
         closeSettings();
@@ -799,6 +829,7 @@
         computerTimer = 0;
         restartTimer = 0;
         blindMode = false;
+        traditionalMode = false;
         startFreshGame(mode);
         showToast(mode === 'computer' ? 'Jogo contra Mestre Quin.' : 'Jogo para duas pessoas neste celular.');
       });
