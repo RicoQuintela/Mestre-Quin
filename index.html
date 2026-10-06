@@ -219,6 +219,8 @@
       let isThinking = false;
       let computerTimer = 0;
       let restartTimer = 0;
+      let winningStrokeTimer = 0;
+      let winningStrokeVisibleUntil = 0;
       let winnerFlashTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
@@ -475,8 +477,18 @@
         return chooseMediumComputerMove();
       }
 
+      function showWinningStrokeBriefly() {
+        window.clearTimeout(winningStrokeTimer);
+        winningStrokeVisibleUntil = Date.now() + 2000;
+        winningStrokeTimer = window.setTimeout(() => {
+          winningStroke.hidden = true;
+          winningStrokeVisibleUntil = 0;
+          winningStrokeTimer = 0;
+        }, 2000);
+      }
+
       function renderWinningStroke() {
-        if (!gameOver || winningLine.length < 3) {
+        if (!gameOver || winningLine.length < 3 || !winningStrokeVisibleUntil || Date.now() >= winningStrokeVisibleUntil) {
           winningStroke.hidden = true;
           return;
         }
@@ -562,6 +574,7 @@
         if (winningLine.length) {
           gameOver = true;
           wins[mode][mark] += 1;
+          showWinningStrokeBriefly();
           playTone(mark === 'X' ? 660 : 880, 0.24, 'triangle');
           const winnerText = mode === 'computer' ? 'Eu venci! Mandou bem!' : `Jogador ${mark} venceu!`;
           showToast(`✨ ${winnerText}`);
@@ -598,6 +611,7 @@
         if (winningLine.length) {
           gameOver = true;
           wins[mode].X += 1;
+          showWinningStrokeBriefly();
           playTone(660, 0.24, 'triangle');
           showToast('🤖 Mestre Quin venceu!');
         } else {
@@ -610,6 +624,9 @@
       }
 
       function startFreshGame(nextMode) {
+        window.clearTimeout(winningStrokeTimer);
+        winningStrokeTimer = 0;
+        winningStrokeVisibleUntil = 0;
         const previousStarter = lastStarter[nextMode];
         const firstMark = previousStarter === null
           ? (nextMode === 'computer' ? 'O' : 'X')
