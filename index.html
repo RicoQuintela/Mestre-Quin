@@ -80,13 +80,13 @@
     .cell:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .cell.x { color: var(--red); border-color: #ff5368; text-shadow: 0 0 12px rgba(255,61,85,.72), 0 0 26px rgba(255,61,85,.28); animation: pop .2s ease-out; }
     .cell.o { color: var(--blue-soft); text-shadow: 0 0 12px rgba(22,140,255,.8), 0 0 26px rgba(22,140,255,.32); animation: pop .2s ease-out; }
-    .cell.winner { animation: winnerFlash .62s ease-in-out infinite alternate; }
+    .cell.winner { animation: winnerFlash .48s ease-in-out infinite alternate; }
     .winning-stroke { position: absolute; z-index: 10; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; color: var(--yellow); }
     .winning-stroke line { stroke: currentColor; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(255,216,61,.9)); }
     .winning-stroke[hidden] { display: none; }
     .cell:disabled { cursor: default; opacity: 1; }
     @keyframes pop { from { transform: scale(.72); opacity: .55; } to { transform: scale(1); opacity: 1; } }
-    @keyframes winnerFlash { from { background: rgba(255,216,61,.06); border-color: var(--yellow); box-shadow: 0 0 7px rgba(255,216,61,.25); } to { background: rgba(255,216,61,.3); border-color: #fff0a0; box-shadow: 0 0 23px rgba(255,216,61,.85), inset 0 0 15px rgba(255,216,61,.18); } }
+    @keyframes winnerFlash { from { opacity: .28; filter: brightness(.5); background: rgba(255,216,61,.02); border-color: var(--yellow); box-shadow: 0 0 3px rgba(255,216,61,.2); } to { opacity: 1; filter: brightness(1.45); background: rgba(255,216,61,.42); border-color: #fff0a0; box-shadow: 0 0 25px rgba(255,216,61,.95), inset 0 0 16px rgba(255,216,61,.25); } }
     .bottom-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 13px; }
     .restart { min-height: 46px; border: 1px solid var(--yellow); border-radius: 13px; background: linear-gradient(135deg, #30270b, #151208); color: var(--yellow); font: inherit; font-size: .78rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 13px rgba(255,216,61,.12); }
     .restart:active { transform: scale(.98); }
@@ -223,6 +223,10 @@
       let toastTimer = 0;
       let soundOn = true;
       let audioContext = null;
+      let backgroundMusicTimer = 0;
+      let backgroundMusicStep = 0;
+      let backgroundMusicGain = null;
+      const backgroundNotes = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23, 261.63, 329.63, 392, 523.25, 440, 392, 329.63, 293.66];
       let difficulty = 'easy';
       try {
         const savedDifficulty = window.localStorage.getItem('velhaNuncaMaisDifficulty');
@@ -257,22 +261,72 @@
         toastTimer = setTimeout(() => toast.classList.remove('show'), 1900);
       }
 
-      function playTone(frequency, duration = 0.09, type = 'sine') {
+      function playTone(frequency, duration = 0.09, type = 'sine', volume = 0.08) {
         if (!soundOn) return;
         try {
           audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+          if (audioContext.state === 'suspended') audioContext.resume();
           const oscillator = audioContext.createOscillator();
           const gain = audioContext.createGain();
           oscillator.type = type;
           oscillator.frequency.value = frequency;
           gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.012);
+          gain.gain.exponentialRampToValueAtTime(volume, audioContext.currentTime + 0.012);
           gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
           oscillator.connect(gain);
           gain.connect(audioContext.destination);
           oscillator.start();
           oscillator.stop(audioContext.currentTime + duration);
         } catch (_) { /* Som opcional; o jogo continua sem áudio. */ }
+      }
+
+      function playBackgroundNote() {
+        if (!soundOn || !audioContext || !backgroundMusicGain || gameApp.hidden) return;
+        try {
+          const now = audioContext.currentTime;
+          const oscillator = audioContext.createOscillator();
+          const noteGain = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(backgroundNotes[backgroundMusicStep], now);
+          backgroundMusicStep = (backgroundMusicStep + 1) % backgroundNotes.length;
+          noteGain.gain.setValueAtTime(0.0001, now);
+          noteGain.gain.exponentialRampToValueAtTime(0.024, now + 0.12);
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.88);
+          oscillator.connect(noteGain);
+          noteGain.connect(backgroundMusicGain);
+          oscillator.start(now);
+          oscillator.stop(now + 0.9);
+        } catch (_) { /* A música de fundo é opcional. */ }
+      }
+
+      function startBackgroundMusic() {
+        if (!soundOn || gameApp.hidden || backgroundMusicTimer) return;
+        try {
+          audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+          if (audioContext.state === 'suspended') audioContext.resume();
+          if (!backgroundMusicGain) {
+            backgroundMusicGain = audioContext.createGain();
+            backgroundMusicGain.gain.value = 0.0001;
+            backgroundMusicGain.connect(audioContext.destination);
+          }
+          const now = audioContext.currentTime;
+          backgroundMusicGain.gain.cancelScheduledValues(now);
+          backgroundMusicGain.gain.setValueAtTime(Math.max(backgroundMusicGain.gain.value, 0.0001), now);
+          backgroundMusicGain.gain.exponentialRampToValueAtTime(0.45, now + 0.25);
+          playBackgroundNote();
+          backgroundMusicTimer = window.setInterval(playBackgroundNote, 950);
+        } catch (_) { /* A música de fundo é opcional. */ }
+      }
+
+      function stopBackgroundMusic() {
+        window.clearInterval(backgroundMusicTimer);
+        backgroundMusicTimer = 0;
+        if (backgroundMusicGain && audioContext) {
+          const now = audioContext.currentTime;
+          backgroundMusicGain.gain.cancelScheduledValues(now);
+          backgroundMusicGain.gain.setValueAtTime(Math.max(backgroundMusicGain.gain.value, 0.0001), now);
+          backgroundMusicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        }
       }
 
       function findWinner(mark, position = board) {
@@ -611,6 +665,10 @@
         projectCover.hidden = true;
         gameApp.hidden = false;
         gameApp.focus();
+        if (soundOn) {
+          playTone(659.25, 0.16, 'sine', 0.032);
+          window.setTimeout(startBackgroundMusic, 450);
+        }
       });
       settingsButton.addEventListener('click', openSettings);
       settingsClose.addEventListener('click', closeSettings);
@@ -633,7 +691,12 @@
         soundButton.setAttribute('aria-label', soundOn ? 'Desativar sons' : 'Ativar sons');
         soundButton.title = soundOn ? 'Sons ligados' : 'Sons desligados';
         soundButton.textContent = soundOn ? '♫' : '♪';
-        if (soundOn) playTone(660, 0.1);
+        if (soundOn) {
+          playTone(660, 0.1);
+          if (!gameApp.hidden) startBackgroundMusic();
+        } else {
+          stopBackgroundMusic();
+        }
         showToast(soundOn ? 'Sons ativados' : 'Sons desligados');
       });
 
