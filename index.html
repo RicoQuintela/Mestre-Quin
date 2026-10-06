@@ -80,6 +80,7 @@
     .cell:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .cell.x { color: var(--red); border-color: #ff5368; text-shadow: 0 0 12px rgba(255,61,85,.72), 0 0 26px rgba(255,61,85,.28); animation: pop .2s ease-out; }
     .cell.o { color: var(--blue-soft); text-shadow: 0 0 12px rgba(22,140,255,.8), 0 0 26px rgba(22,140,255,.32); animation: pop .2s ease-out; }
+    .cell.blind-flashing { animation: blindFlash .5s ease-in-out both; }
     .cell.winner { transition: opacity .12s linear, filter .12s linear, background .12s linear, border-color .12s linear, box-shadow .12s linear; }
     .cell.winner.winner-blink-bright { opacity: 1; filter: brightness(1.45); background: rgba(255,216,61,.42); border-color: #fff0a0; box-shadow: 0 0 25px rgba(255,216,61,.95), inset 0 0 16px rgba(255,216,61,.25); }
     .cell.winner.winner-blink-dim { opacity: .16; filter: brightness(.4); background: rgba(255,216,61,.01); border-color: var(--yellow); box-shadow: 0 0 2px rgba(255,216,61,.15); }
@@ -88,6 +89,7 @@
     .winning-stroke[hidden] { display: none; }
     .cell:disabled { cursor: default; opacity: 1; }
     @keyframes pop { from { transform: scale(.72); opacity: .55; } to { transform: scale(1); opacity: 1; } }
+    @keyframes blindFlash { 0%, 40%, 80%, 100% { opacity: 1; filter: brightness(1.35); } 20%, 60% { opacity: .18; filter: brightness(.45); } }
     .bottom-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 13px; }
     .restart { min-height: 46px; border: 1px solid var(--yellow); border-radius: 13px; background: linear-gradient(135deg, #30270b, #151208); color: var(--yellow); font: inherit; font-size: .78rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 13px rgba(255,216,61,.12); }
     .restart:active { transform: scale(.98); }
@@ -197,11 +199,11 @@
       <section class="settings-dialog bonus-dialog" aria-label="A Velha Cega">
         <button class="save-level blind-game-button bonus-game-button" id="blindGameButton" type="button">A velha cega</button>
         <div class="difficulty-list blind-difficulty-list" role="group" aria-label="Níveis da A Velha Cega">
-          <button class="difficulty-button" type="button" data-blind-difficulty="medium" aria-pressed="true">
-            <strong>Médio</strong><span>Equilíbrio entre ataque e defesa.</span>
+          <button class="difficulty-button" type="button" data-blind-difficulty="medium" aria-pressed="false">
+            <strong>Médio</strong><span>As peças no tabuleiro aparecem e piscam por 0,5 segundo.</span>
           </button>
-          <button class="difficulty-button" type="button" data-blind-difficulty="hard" aria-pressed="false">
-            <strong>Difícil</strong><span>Mestre Quin analisa várias jogadas à frente.</span>
+          <button class="difficulty-button" type="button" data-blind-difficulty="hard" aria-pressed="true">
+            <strong>Difícil</strong><span>Só a peça recém-colocada aparece e pisca por 0,5 segundo.</span>
           </button>
         </div>
         <button class="save-level" id="blindSettingsSave" type="button">Salvar nível</button>
@@ -274,11 +276,11 @@
         if (['easy', 'medium', 'hard'].includes(savedDifficulty)) difficulty = savedDifficulty;
       } catch (_) { /* O jogo continua usando o modo fácil se o armazenamento estiver bloqueado. */ }
       let selectedDifficulty = difficulty;
-      let blindDifficulty = 'medium';
+      let blindDifficulty = 'hard';
       try {
-        const savedBlindDifficulty = window.localStorage.getItem('velhaNuncaMaisBlindDifficulty');
+        const savedBlindDifficulty = window.localStorage.getItem('velhaNuncaMaisBlindDifficultyV2');
         if (['medium', 'hard'].includes(savedBlindDifficulty)) blindDifficulty = savedBlindDifficulty;
-      } catch (_) { /* A dificuldade da A Velha Cega continua no nível médio. */ }
+      } catch (_) { /* A dificuldade da A Velha Cega continua no nível difícil. */ }
       let selectedBlindDifficulty = blindDifficulty;
 
       for (let i = 0; i < 9; i++) {
@@ -601,13 +603,26 @@
 
       function revealPieceTemporarily(index) {
         if (!blindMode) return;
-        window.clearTimeout(blindPieceTimers[index]);
-        blindVisibleUntil[index] = Date.now() + 500;
-        blindPieceTimers[index] = window.setTimeout(() => {
-          blindVisibleUntil[index] = 0;
-          blindPieceTimers[index] = 0;
-          if (blindMode) render();
-        }, 500);
+        blindPieceTimers.forEach(timer => window.clearTimeout(timer));
+        blindPieceTimers = Array(9).fill(0);
+        blindVisibleUntil = Array(9).fill(0);
+        cells.forEach(cell => cell.classList.remove('blind-flashing'));
+        void boardElement.offsetWidth;
+        const visibleIndices = blindDifficulty === 'medium'
+          ? board.reduce((visible, mark, boardIndex) => {
+              if (mark) visible.push(boardIndex);
+              return visible;
+            }, [])
+          : [index];
+        const expiresAt = Date.now() + 500;
+        visibleIndices.forEach(visibleIndex => {
+          blindVisibleUntil[visibleIndex] = expiresAt;
+          blindPieceTimers[visibleIndex] = window.setTimeout(() => {
+            blindVisibleUntil[visibleIndex] = 0;
+            blindPieceTimers[visibleIndex] = 0;
+            if (blindMode) render();
+          }, 500);
+        });
       }
 
       function render() {
@@ -621,6 +636,7 @@
           cell.textContent = markVisible ? mark : '';
           cell.classList.toggle('x', markVisible && mark === 'X');
           cell.classList.toggle('o', markVisible && mark === 'O');
+          cell.classList.toggle('blind-flashing', blindMode && !revealWinningBoard && markVisible && Date.now() < blindVisibleUntil[index]);
           cell.classList.toggle('expiring', index === nextExpiringIndex);
           cell.disabled = Boolean(mark) || gameOver || isThinking || (mode === 'computer' && player !== 'O');
           const markDescription = !mark ? 'vazia' : (markVisible ? `marcada com ${mark}` : 'peça apagada');
@@ -835,7 +851,7 @@
 
       function saveBlindDifficulty() {
         blindDifficulty = selectedBlindDifficulty;
-        try { window.localStorage.setItem('velhaNuncaMaisBlindDifficulty', blindDifficulty); } catch (_) { /* Persistência opcional. */ }
+        try { window.localStorage.setItem('velhaNuncaMaisBlindDifficultyV2', blindDifficulty); } catch (_) { /* Persistência opcional. */ }
         const names = { medium: 'Médio', hard: 'Difícil' };
         closeSettings();
         showToast(`Nível ${names[blindDifficulty]} da A velha cega salvo.`);
