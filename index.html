@@ -104,7 +104,9 @@
     .settings-backdrop[hidden] { display: none; }
     .settings-dialog { width: min(100%, 420px); padding: 19px; border: 2px solid #008CFF; border-radius: 20px; background: radial-gradient(ellipse at 50% 0%, rgba(22,140,255,.18), transparent 55%), #090d16; box-shadow: 0 0 30px rgba(0,140,255,.3); }
     .settings-layout { width: min(100%, 420px); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overscroll-behavior: contain; }
-    .settings-layout > #blindGameButton { flex: 0 0 auto; margin-top: 0; }
+    .settings-layout > .bonus-section { flex: 0 0 auto; width: calc(100% - 38px); align-self: center; display: flex; flex-direction: column; gap: 8px; }
+    .bonus-heading { color: var(--yellow); font-size: .82rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .bonus-section > #blindGameButton { width: 100%; min-height: 46px; margin-top: 0; }
     .settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
     .settings-header h2 { margin: 0; color: var(--yellow); font-size: 1.15rem; letter-spacing: .08em; }
     .settings-close { width: 38px; height: 38px; border: 1px solid #008CFF; border-radius: 50%; background: #080b12; color: var(--blue-soft); font-size: 1.35rem; cursor: pointer; }
@@ -188,7 +190,10 @@
       </div>
       <button class="save-level" id="settingsSave" type="button">Salvar nível</button>
       </section>
-      <button class="save-level blind-game-button" id="blindGameButton" type="button">A velha cega</button>
+      <div class="bonus-section">
+        <div class="bonus-heading">Bônus:</div>
+        <button class="save-level blind-game-button" id="blindGameButton" type="button">A velha cega</button>
+      </div>
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
