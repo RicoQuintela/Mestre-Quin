@@ -221,6 +221,7 @@
       let restartTimer = 0;
       let winningStrokeTimer = 0;
       let winningStrokeVisibleUntil = 0;
+      const winningStrokeDuration = 5000;
       let winnerFlashTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
@@ -479,12 +480,12 @@
 
       function showWinningStrokeBriefly() {
         window.clearTimeout(winningStrokeTimer);
-        winningStrokeVisibleUntil = Date.now() + 2000;
+        winningStrokeVisibleUntil = Date.now() + winningStrokeDuration;
         winningStrokeTimer = window.setTimeout(() => {
           winningStroke.hidden = true;
           winningStrokeVisibleUntil = 0;
           winningStrokeTimer = 0;
-        }, 2000);
+        }, winningStrokeDuration);
       }
 
       function renderWinningStroke() {
@@ -574,10 +575,10 @@
         if (winningLine.length) {
           gameOver = true;
           wins[mode][mark] += 1;
-          showWinningStrokeBriefly();
           playTone(mark === 'X' ? 660 : 880, 0.24, 'triangle');
           const winnerText = mode === 'computer' ? 'Eu venci! Mandou bem!' : `Jogador ${mark} venceu!`;
           showToast(`✨ ${winnerText}`);
+          showWinningStrokeBriefly();
           render();
           restartTimer = setTimeout(newGame, 5000);
           return;
@@ -611,9 +612,9 @@
         if (winningLine.length) {
           gameOver = true;
           wins[mode].X += 1;
-          showWinningStrokeBriefly();
           playTone(660, 0.24, 'triangle');
           showToast('🤖 Mestre Quin venceu!');
+          showWinningStrokeBriefly();
         } else {
           playTone(420, 0.08);
           if (vanished) showToast('A peça mais antiga do X desapareceu!');
