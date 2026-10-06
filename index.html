@@ -476,19 +476,29 @@
         return chooseMediumComputerMove();
       }
 
+      function clearWinningStroke() {
+        winningStroke.hidden = true;
+        winningStrokeLine.removeAttribute('x1');
+        winningStrokeLine.removeAttribute('y1');
+        winningStrokeLine.removeAttribute('x2');
+        winningStrokeLine.removeAttribute('y2');
+        winningStroke.remove();
+      }
+
       function scheduleAutoRestart() {
         window.clearTimeout(restartTimer);
         restartTimer = window.setTimeout(() => {
-          winningStroke.hidden = true;
+          clearWinningStroke();
           newGame();
         }, roundRestartDelay);
       }
 
       function renderWinningStroke() {
         if (!gameOver || winningLine.length < 3) {
-          winningStroke.hidden = true;
+          clearWinningStroke();
           return;
         }
+        if (!winningStroke.isConnected) boardElement.appendChild(winningStroke);
         const firstRect = cells[winningLine[0]].getBoundingClientRect();
         const lastRect = cells[winningLine[winningLine.length - 1]].getBoundingClientRect();
         const boardRect = boardElement.getBoundingClientRect();
@@ -619,7 +629,7 @@
       }
 
       function startFreshGame(nextMode) {
-        winningStroke.hidden = true;
+        clearWinningStroke();
         const previousStarter = lastStarter[nextMode];
         const firstMark = previousStarter === null
           ? (nextMode === 'computer' ? 'O' : 'X')
@@ -631,6 +641,7 @@
         gameOver = false;
         isThinking = nextMode === 'computer' && firstMark === 'X';
         winningLine = [];
+        boardElement.appendChild(winningStroke);
         render();
         if (isThinking) computerTimer = setTimeout(computerMove, 2000);
         return firstMark;
