@@ -295,7 +295,7 @@
           oscillator.frequency.setValueAtTime(backgroundNotes[backgroundMusicStep], now);
           backgroundMusicStep = (backgroundMusicStep + 1) % backgroundNotes.length;
           noteGain.gain.setValueAtTime(0.0001, now);
-          noteGain.gain.exponentialRampToValueAtTime(0.04, now + 0.12);
+          noteGain.gain.exponentialRampToValueAtTime(0.05, now + 0.12);
           noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.88);
           oscillator.connect(noteGain);
           noteGain.connect(backgroundMusicGain);
