@@ -115,6 +115,7 @@
     .difficulty-button[aria-pressed="true"] strong { color: var(--yellow); }
     .save-level { width: 100%; min-height: 46px; margin-top: 12px; border: 1.5px solid var(--yellow); border-radius: 13px; background: linear-gradient(135deg, #30270b, #151208); color: var(--yellow); font: inherit; font-size: .82rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
     .save-level:active { transform: scale(.98); }
+    .blind-game-button { text-transform: none; }
     .settings-hint { margin: 12px 0 0; color: #8797ab; font-size: .72rem; line-height: 1.4; }
     .cell.expiring { position: relative; z-index: 1; outline: 4px solid var(--yellow); outline-offset: -5px; box-shadow: 0 0 17px rgba(255,216,61,.8), inset 0 0 18px rgba(255,216,61,.18); }
     .toast { position: fixed; z-index: 25; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translate(-50%, 18px); width: min(88vw, 390px); padding: 12px 14px; border: 1px solid var(--yellow); border-radius: 13px; background: rgba(6,8,13,.96); color: var(--white); text-align: center; font-weight: 800; font-size: .84rem; box-shadow: 0 0 22px rgba(255,216,61,.18); opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
@@ -157,8 +158,8 @@
           <button class="sound sound-inline" id="sound" type="button" aria-label="Desativar sons" aria-pressed="true" title="Sons ligados">♫</button>
           <button class="gear-button" id="settingsButton" type="button" aria-label="Configurações" title="Configurações">⚙</button>
         </div>
-        <span class="rules-game-title">Velha nunca mais!</span>
-        Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?
+        <span class="rules-game-title" id="rulesGameTitle">Velha nunca mais!</span>
+        <span id="rulesDescription">Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?</span>
       </div>
     </section>
     
@@ -182,7 +183,7 @@
         </button>
       </div>
       <button class="save-level" id="settingsSave" type="button">Salvar nível</button>
-      <p class="settings-hint">A dificuldade afeta as partidas contra o Mestre Quin.</p>
+      <button class="save-level blind-game-button" id="blindGameButton" type="button">A velha cega</button>
     </section>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -198,6 +199,8 @@
       const scoreOName = document.getElementById('scoreOName');
       const modeComputerButton = document.getElementById('modeComputer');
       const modeLocalButton = document.getElementById('modeLocal');
+      const rulesGameTitle = document.getElementById('rulesGameTitle');
+      const rulesDescription = document.getElementById('rulesDescription');
       const toast = document.getElementById('toast');
       const soundButton = document.getElementById('sound');
       const settingsButton = document.getElementById('settingsButton');
@@ -207,6 +210,7 @@
       const settingsBackdrop = document.getElementById('settingsBackdrop');
       const settingsClose = document.getElementById('settingsClose');
       const settingsSave = document.getElementById('settingsSave');
+      const blindGameButton = document.getElementById('blindGameButton');
       const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
       const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
       const cells = [];
@@ -214,15 +218,18 @@
       let order = { X: [], O: [] };
       let mode = 'computer';
       let player = 'O';
-      let lastStarter = { computer: 'O', local: null };
+      let lastStarter = { computer: 'O', local: null, blind: null };
       let gameOver = false;
+      let isDraw = false;
       let isThinking = false;
       let computerTimer = 0;
       let restartTimer = 0;
       const roundRestartDelay = 4000;
+      let blindVisibleUntil = Array(9).fill(0);
+      let blindPieceTimers = Array(9).fill(0);
       let winnerFlashTimer = 0;
       let winningLine = [];
-      let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
+      let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 }, blind: { X: 0, O: 0 } };
       let toastTimer = 0;
       let soundOn = true;
       let audioContext = null;
@@ -340,7 +347,7 @@
         position[index] = mark;
         history[mark].push(index);
         let vanished = false;
-        if (history[mark].length > 3) {
+        if (mode !== 'blind' && history[mark].length > 3) {
           const oldestIndex = history[mark].shift();
           if (position[oldestIndex] === mark) position[oldestIndex] = null;
           vanished = true;
@@ -494,7 +501,7 @@
       }
 
       function renderWinningStroke() {
-        if (!gameOver || winningLine.length < 3) {
+        if (mode === 'blind' || !gameOver || winningLine.length < 3) {
           clearWinningStroke();
           return;
         }
@@ -522,7 +529,7 @@
       function syncWinningCellFlash() {
         window.clearInterval(winnerFlashTimer);
         winnerFlashTimer = 0;
-        const hasWinner = gameOver && winningLine.length === 3;
+        const hasWinner = mode !== 'blind' && gameOver && winningLine.length === 3;
         cells.forEach((cell, index) => {
           const isWinner = hasWinner && winningLine.includes(index);
           cell.classList.toggle('winner', isWinner);
@@ -543,23 +550,29 @@
       }
 
       function render() {
-        const nextExpiringIndex = !gameOver && difficulty === 'easy' && order[player].length >= 3
+        const nextExpiringIndex = mode !== 'blind' && !gameOver && difficulty === 'easy' && order[player].length >= 3
           ? order[player][0]
           : -1;
         cells.forEach((cell, index) => {
           const mark = board[index];
-          cell.textContent = mark || '';
-          cell.classList.toggle('x', mark === 'X');
-          cell.classList.toggle('o', mark === 'O');
+          const markVisible = Boolean(mark) && (mode !== 'blind' || Date.now() < blindVisibleUntil[index]);
+          cell.textContent = markVisible ? mark : '';
+          cell.classList.toggle('x', markVisible && mark === 'X');
+          cell.classList.toggle('o', markVisible && mark === 'O');
           cell.classList.toggle('expiring', index === nextExpiringIndex);
           cell.disabled = Boolean(mark) || gameOver || isThinking || (mode === 'computer' && player !== 'O');
-          const label = `Casa ${index + 1}, ${mark ? `marcada com ${mark}` : 'vazia'}`;
+          const markDescription = !mark ? 'vazia' : (markVisible ? `marcada com ${mark}` : 'peça apagada');
+          const label = `Casa ${index + 1}, ${markDescription}`;
           cell.setAttribute('aria-label', index === nextExpiringIndex ? `${label}, peça mais antiga que sairá na próxima jogada` : label);
         });
+        rulesGameTitle.textContent = mode === 'blind' ? 'A velha cega' : 'Velha nunca mais!';
+        rulesDescription.textContent = mode === 'blind'
+          ? 'Jogo da velha tradicional: cada peça fica visível por 0,5 segundo e depois se apaga.'
+          : 'Esse é um jogo da velha que nunca dá velha, ao inserir a 4ª peça a mais antiga desaparece. Será que você é capaz de vencer o mestre?';
         turnMark.textContent = player;
-        turnText.textContent = gameOver
+        turnText.textContent = isDraw ? 'Deu velha!' : (gameOver
           ? (mode === 'computer' ? (player === 'O' ? 'Eu venci!' : 'Mestre Quin venceu!') : `Jogador ${player} venceu!`)
-          : (mode === 'computer' ? (isThinking ? 'Mestre Quin pensando…' : 'Sua vez · O') : `Vez do jogador ${player}`);
+          : (mode === 'computer' ? (isThinking ? 'Mestre Quin pensando…' : 'Sua vez · O') : `Vez do jogador ${player}`));
         turnBar.classList.toggle('x-turn', player === 'X');
         turnBar.classList.toggle('o-turn', player === 'O');
         scoreXElement.textContent = wins[mode].X;
@@ -577,6 +590,15 @@
         if (gameOver || isThinking || (mode === 'computer' && player !== 'O') || board[index]) return;
         const mark = player;
         const vanished = applyMove(board, order, mark, index);
+        if (mode === 'blind') {
+          window.clearTimeout(blindPieceTimers[index]);
+          blindVisibleUntil[index] = Date.now() + 500;
+          blindPieceTimers[index] = window.setTimeout(() => {
+            blindVisibleUntil[index] = 0;
+            blindPieceTimers[index] = 0;
+            if (mode === 'blind') render();
+          }, 500);
+        }
         winningLine = findWinner(mark);
         if (winningLine.length) {
           gameOver = true;
@@ -584,6 +606,14 @@
           playTone(mark === 'X' ? 660 : 880, 0.24, 'triangle');
           const winnerText = mode === 'computer' ? 'Eu venci! Mandou bem!' : `Jogador ${mark} venceu!`;
           showToast(`✨ ${winnerText}`);
+          render();
+          scheduleAutoRestart();
+          return;
+        }
+        if (mode === 'blind' && board.every(Boolean)) {
+          gameOver = true;
+          isDraw = true;
+          showToast('Deu velha! Empate.');
           render();
           scheduleAutoRestart();
           return;
@@ -630,6 +660,9 @@
 
       function startFreshGame(nextMode) {
         clearWinningStroke();
+        blindPieceTimers.forEach(timer => window.clearTimeout(timer));
+        blindPieceTimers = Array(9).fill(0);
+        blindVisibleUntil = Array(9).fill(0);
         const previousStarter = lastStarter[nextMode];
         const firstMark = previousStarter === null
           ? (nextMode === 'computer' ? 'O' : 'X')
@@ -641,6 +674,7 @@
         gameOver = false;
         isThinking = nextMode === 'computer' && firstMark === 'X';
         winningLine = [];
+        isDraw = false;
         boardElement.appendChild(winningStroke);
         render();
         if (isThinking) computerTimer = setTimeout(computerMove, 2000);
@@ -655,7 +689,7 @@
         computerTimer = 0;
         mode = nextMode;
         startFreshGame(mode);
-        showToast(mode === 'computer' ? 'Modo contra Mestre Quin.' : 'Modo para duas pessoas neste celular.');
+        showToast(mode === 'computer' ? 'Modo contra Mestre Quin.' : (mode === 'blind' ? 'Modo A velha cega.' : 'Modo para duas pessoas neste celular.'));
       }
 
       function newGame() {
@@ -719,6 +753,11 @@
       settingsButton.addEventListener('click', openSettings);
       settingsClose.addEventListener('click', closeSettings);
       settingsSave.addEventListener('click', saveDifficulty);
+      blindGameButton.addEventListener('click', () => {
+        closeSettings();
+        if (mode === 'blind') newGame();
+        else setMode('blind');
+      });
       settingsBackdrop.addEventListener('click', event => {
         if (event.target === settingsBackdrop) closeSettings();
       });
