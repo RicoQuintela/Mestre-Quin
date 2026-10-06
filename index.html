@@ -151,7 +151,7 @@
       </div>
       <div class="rules">
         <div class="rules-toolbar">
-          <button class="sound sound-inline" id="sound" type="button" aria-label="Ativar sons" aria-pressed="false" title="Sons desligados">♪</button>
+          <button class="sound sound-inline" id="sound" type="button" aria-label="Desativar sons" aria-pressed="true" title="Sons ligados">♫</button>
           <button class="gear-button" id="settingsButton" type="button" aria-label="Configurações" title="Configurações">⚙</button>
         </div>
         <span class="rules-game-title">Velha nunca mais!</span>
@@ -218,7 +218,7 @@
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
       let toastTimer = 0;
-      let soundOn = false;
+      let soundOn = true;
       let audioContext = null;
       let difficulty = 'easy';
       try {
