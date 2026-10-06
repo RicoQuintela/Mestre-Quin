@@ -213,6 +213,7 @@
       let gameOver = false;
       let isThinking = false;
       let computerTimer = 0;
+      let restartTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
       let toastTimer = 0;
@@ -447,6 +448,7 @@
           const winnerText = mode === 'computer' ? 'Eu venci! Mandou bem!' : `Jogador ${mark} venceu!`;
           showToast(`✨ ${winnerText}`);
           render();
+          restartTimer = setTimeout(newGame, 5000);
           return;
         }
         playTone(mark === 'X' ? 420 : 520, 0.08);
@@ -486,11 +488,14 @@
           player = 'O';
         }
         render();
+        if (gameOver) restartTimer = setTimeout(newGame, 5000);
       }
 
       function setMode(nextMode) {
         if (nextMode === mode) return;
         clearTimeout(computerTimer);
+        clearTimeout(restartTimer);
+        restartTimer = 0;
         computerTimer = 0;
         mode = nextMode;
         board = Array(9).fill(null);
@@ -505,6 +510,8 @@
 
       function newGame() {
         clearTimeout(computerTimer);
+        clearTimeout(restartTimer);
+        restartTimer = 0;
         computerTimer = 0;
         board = Array(9).fill(null);
         order = { X: [], O: [] };
