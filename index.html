@@ -80,12 +80,11 @@
     .cell:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .cell.x { color: var(--red); border-color: #ff5368; text-shadow: 0 0 12px rgba(255,61,85,.72), 0 0 26px rgba(255,61,85,.28); animation: pop .2s ease-out; }
     .cell.o { color: var(--blue-soft); text-shadow: 0 0 12px rgba(22,140,255,.8), 0 0 26px rgba(22,140,255,.32); animation: pop .2s ease-out; }
-    .cell.winner { background: rgba(255,216,61,.13); border-color: var(--yellow); animation: winnerGlow .8s ease-in-out infinite alternate; }
-    .winning-stroke { position: absolute; z-index: 5; height: 5px; border-radius: 999px; background: var(--yellow); box-shadow: 0 0 8px rgba(255,216,61,.95), 0 0 19px rgba(255,216,61,.7); pointer-events: none; transform-origin: left center; }
+    .winning-stroke { position: absolute; z-index: 10; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; color: var(--yellow); }
+    .winning-stroke line { stroke: currentColor; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(255,216,61,.9)); }
     .winning-stroke[hidden] { display: none; }
     .cell:disabled { cursor: default; opacity: 1; }
     @keyframes pop { from { transform: scale(.72); opacity: .55; } to { transform: scale(1); opacity: 1; } }
-    @keyframes winnerGlow { from { box-shadow: 0 0 8px rgba(255,216,61,.35); } to { box-shadow: 0 0 25px rgba(255,216,61,.8), inset 0 0 14px rgba(255,216,61,.18); } }
     .bottom-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 13px; }
     .restart { min-height: 46px; border: 1px solid var(--yellow); border-radius: 13px; background: linear-gradient(135deg, #30270b, #151208); color: var(--yellow); font: inherit; font-size: .78rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 13px rgba(255,216,61,.12); }
     .restart:active { transform: scale(.98); }
@@ -238,9 +237,13 @@
         boardElement.appendChild(cell);
         cells.push(cell);
       }
-      const winningStroke = document.createElement('div');
-      winningStroke.className = 'winning-stroke';
+      const svgNamespace = 'http://www.w3.org/2000/svg';
+      const winningStroke = document.createElementNS(svgNamespace, 'svg');
+      winningStroke.classList.add('winning-stroke');
       winningStroke.setAttribute('aria-hidden', 'true');
+      winningStroke.setAttribute('focusable', 'false');
+      const winningStrokeLine = document.createElementNS(svgNamespace, 'line');
+      winningStroke.appendChild(winningStrokeLine);
       winningStroke.hidden = true;
       boardElement.appendChild(winningStroke);
 
@@ -431,11 +434,10 @@
         const ux = dx / distance;
         const uy = dy / distance;
         const extension = Math.min(firstRect.width, firstRect.height) * 0.48;
-        const strokeWidth = 5;
-        winningStroke.style.left = `${x1 - ux * extension}px`;
-        winningStroke.style.top = `${y1 - uy * extension - strokeWidth / 2}px`;
-        winningStroke.style.width = `${distance + extension * 2}px`;
-        winningStroke.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+        winningStrokeLine.setAttribute('x1', String(x1 - ux * extension));
+        winningStrokeLine.setAttribute('y1', String(y1 - uy * extension));
+        winningStrokeLine.setAttribute('x2', String(x2 + ux * extension));
+        winningStrokeLine.setAttribute('y2', String(y2 + uy * extension));
         winningStroke.hidden = false;
       }
 
@@ -448,7 +450,6 @@
           cell.textContent = mark || '';
           cell.classList.toggle('x', mark === 'X');
           cell.classList.toggle('o', mark === 'O');
-          cell.classList.toggle('winner', winningLine.includes(index));
           cell.classList.toggle('expiring', index === nextExpiringIndex);
           cell.disabled = Boolean(mark) || gameOver || isThinking || (mode === 'computer' && player !== 'O');
           const label = `Casa ${index + 1}, ${mark ? `marcada com ${mark}` : 'vazia'}`;
