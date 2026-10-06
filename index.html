@@ -219,9 +219,7 @@
       let isThinking = false;
       let computerTimer = 0;
       let restartTimer = 0;
-      let winningStrokeTimer = 0;
-      let winningStrokeVisibleUntil = 0;
-      const winningStrokeDuration = 3000;
+      const roundRestartDelay = 3000;
       let winnerFlashTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
@@ -478,18 +476,16 @@
         return chooseMediumComputerMove();
       }
 
-      function showWinningStrokeBriefly() {
-        window.clearTimeout(winningStrokeTimer);
-        winningStrokeVisibleUntil = Date.now() + winningStrokeDuration;
-        winningStrokeTimer = window.setTimeout(() => {
+      function scheduleAutoRestart() {
+        window.clearTimeout(restartTimer);
+        restartTimer = window.setTimeout(() => {
           winningStroke.hidden = true;
-          winningStrokeVisibleUntil = 0;
-          winningStrokeTimer = 0;
-        }, winningStrokeDuration);
+          newGame();
+        }, roundRestartDelay);
       }
 
       function renderWinningStroke() {
-        if (!gameOver || winningLine.length < 3 || !winningStrokeVisibleUntil || Date.now() >= winningStrokeVisibleUntil) {
+        if (!gameOver || winningLine.length < 3) {
           winningStroke.hidden = true;
           return;
         }
@@ -578,9 +574,8 @@
           playTone(mark === 'X' ? 660 : 880, 0.24, 'triangle');
           const winnerText = mode === 'computer' ? 'Eu venci! Mandou bem!' : `Jogador ${mark} venceu!`;
           showToast(`✨ ${winnerText}`);
-          showWinningStrokeBriefly();
           render();
-          restartTimer = setTimeout(newGame, 3000);
+          scheduleAutoRestart();
           return;
         }
         playTone(mark === 'X' ? 420 : 520, 0.08);
@@ -614,20 +609,17 @@
           wins[mode].X += 1;
           playTone(660, 0.24, 'triangle');
           showToast('🤖 Mestre Quin venceu!');
-          showWinningStrokeBriefly();
         } else {
           playTone(420, 0.08);
           if (vanished) showToast('A peça mais antiga do X desapareceu!');
           player = 'O';
         }
         render();
-        if (gameOver) restartTimer = setTimeout(newGame, 3000);
+        if (gameOver) scheduleAutoRestart();
       }
 
       function startFreshGame(nextMode) {
-        window.clearTimeout(winningStrokeTimer);
-        winningStrokeTimer = 0;
-        winningStrokeVisibleUntil = 0;
+        winningStroke.hidden = true;
         const previousStarter = lastStarter[nextMode];
         const firstMark = previousStarter === null
           ? (nextMode === 'computer' ? 'O' : 'X')
