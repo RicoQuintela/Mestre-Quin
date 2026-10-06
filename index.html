@@ -80,13 +80,14 @@
     .cell:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .cell.x { color: var(--red); border-color: #ff5368; text-shadow: 0 0 12px rgba(255,61,85,.72), 0 0 26px rgba(255,61,85,.28); animation: pop .2s ease-out; }
     .cell.o { color: var(--blue-soft); text-shadow: 0 0 12px rgba(22,140,255,.8), 0 0 26px rgba(22,140,255,.32); animation: pop .2s ease-out; }
-    .cell.winner { animation: winnerFlash .48s ease-in-out infinite alternate; }
+    .cell.winner { transition: opacity .12s linear, filter .12s linear, background .12s linear, border-color .12s linear, box-shadow .12s linear; }
+    .cell.winner.winner-blink-bright { opacity: 1; filter: brightness(1.45); background: rgba(255,216,61,.42); border-color: #fff0a0; box-shadow: 0 0 25px rgba(255,216,61,.95), inset 0 0 16px rgba(255,216,61,.25); }
+    .cell.winner.winner-blink-dim { opacity: .16; filter: brightness(.4); background: rgba(255,216,61,.01); border-color: var(--yellow); box-shadow: 0 0 2px rgba(255,216,61,.15); }
     .winning-stroke { position: absolute; z-index: 10; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; color: var(--yellow); }
     .winning-stroke line { stroke: currentColor; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(255,216,61,.9)); }
     .winning-stroke[hidden] { display: none; }
     .cell:disabled { cursor: default; opacity: 1; }
     @keyframes pop { from { transform: scale(.72); opacity: .55; } to { transform: scale(1); opacity: 1; } }
-    @keyframes winnerFlash { from { opacity: .28; filter: brightness(.5); background: rgba(255,216,61,.02); border-color: var(--yellow); box-shadow: 0 0 3px rgba(255,216,61,.2); } to { opacity: 1; filter: brightness(1.45); background: rgba(255,216,61,.42); border-color: #fff0a0; box-shadow: 0 0 25px rgba(255,216,61,.95), inset 0 0 16px rgba(255,216,61,.25); } }
     .bottom-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 13px; }
     .restart { min-height: 46px; border: 1px solid var(--yellow); border-radius: 13px; background: linear-gradient(135deg, #30270b, #151208); color: var(--yellow); font: inherit; font-size: .78rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 13px rgba(255,216,61,.12); }
     .restart:active { transform: scale(.98); }
@@ -218,6 +219,7 @@
       let isThinking = false;
       let computerTimer = 0;
       let restartTimer = 0;
+      let winnerFlashTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
       let toastTimer = 0;
@@ -290,7 +292,7 @@
           oscillator.frequency.setValueAtTime(backgroundNotes[backgroundMusicStep], now);
           backgroundMusicStep = (backgroundMusicStep + 1) % backgroundNotes.length;
           noteGain.gain.setValueAtTime(0.0001, now);
-          noteGain.gain.exponentialRampToValueAtTime(0.024, now + 0.12);
+          noteGain.gain.exponentialRampToValueAtTime(0.04, now + 0.12);
           noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.88);
           oscillator.connect(noteGain);
           noteGain.connect(backgroundMusicGain);
@@ -498,6 +500,29 @@
         winningStroke.hidden = false;
       }
 
+      function syncWinningCellFlash() {
+        window.clearInterval(winnerFlashTimer);
+        winnerFlashTimer = 0;
+        const hasWinner = gameOver && winningLine.length === 3;
+        cells.forEach((cell, index) => {
+          const isWinner = hasWinner && winningLine.includes(index);
+          cell.classList.toggle('winner', isWinner);
+          cell.classList.remove('winner-blink-bright', 'winner-blink-dim');
+        });
+        if (!hasWinner) return;
+        let bright = true;
+        const flash = () => {
+          cells.forEach((cell, index) => {
+            const isWinner = winningLine.includes(index);
+            cell.classList.toggle('winner-blink-bright', isWinner && bright);
+            cell.classList.toggle('winner-blink-dim', isWinner && !bright);
+          });
+          bright = !bright;
+        };
+        flash();
+        winnerFlashTimer = window.setInterval(flash, 280);
+      }
+
       function render() {
         const nextExpiringIndex = !gameOver && difficulty === 'easy' && order[player].length >= 3
           ? order[player][0]
@@ -507,7 +532,6 @@
           cell.textContent = mark || '';
           cell.classList.toggle('x', mark === 'X');
           cell.classList.toggle('o', mark === 'O');
-          cell.classList.toggle('winner', winningLine.includes(index));
           cell.classList.toggle('expiring', index === nextExpiringIndex);
           cell.disabled = Boolean(mark) || gameOver || isThinking || (mode === 'computer' && player !== 'O');
           const label = `Casa ${index + 1}, ${mark ? `marcada com ${mark}` : 'vazia'}`;
@@ -526,6 +550,7 @@
         scoreOName.textContent = mode === 'computer' ? 'Eu · O' : 'JOGADOR O';
         modeComputerButton.setAttribute('aria-pressed', String(mode === 'computer'));
         modeLocalButton.setAttribute('aria-pressed', String(mode === 'local'));
+        syncWinningCellFlash();
         renderWinningStroke();
       }
 
