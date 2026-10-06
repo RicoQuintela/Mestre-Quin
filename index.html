@@ -74,13 +74,15 @@
     .turn.x-turn .turn-mark { color: var(--red); text-shadow: 0 0 14px rgba(255,61,85,.7); }
     .turn.o-turn .turn-mark { color: var(--blue-soft); text-shadow: 0 0 14px rgba(22,140,255,.8); }
     .board-wrap { position: relative; padding: 9px; border-radius: 19px; background: linear-gradient(135deg, rgba(22,140,255,.16), rgba(255,216,61,.09), rgba(255,61,85,.12)); box-shadow: 0 0 24px rgba(22,140,255,.13); }
-    .board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; aspect-ratio: 1 / 1; }
+    .board { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; aspect-ratio: 1 / 1; }
     .cell { appearance: none; width: 100%; height: 100%; min-width: 0; min-height: 0; border: 1.5px solid var(--blue); border-radius: 13px; background: linear-gradient(145deg, #0b101a, #070910); color: var(--white); font: inherit; font-size: clamp(3.15rem, 18vw, 5.8rem); font-weight: 1000; line-height: 1; display: grid; place-items: center; padding: 0; cursor: pointer; box-shadow: inset 0 0 17px rgba(22,140,255,.07), 0 0 8px rgba(22,140,255,.16); transition: transform .13s ease, background .15s ease, box-shadow .18s ease, border-color .18s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
     .cell:active:not(:disabled) { transform: scale(.96); }
     .cell:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
     .cell.x { color: var(--red); border-color: #ff5368; text-shadow: 0 0 12px rgba(255,61,85,.72), 0 0 26px rgba(255,61,85,.28); animation: pop .2s ease-out; }
     .cell.o { color: var(--blue-soft); text-shadow: 0 0 12px rgba(22,140,255,.8), 0 0 26px rgba(22,140,255,.32); animation: pop .2s ease-out; }
-    .cell.winner { background: rgba(255,216,61,.13); border-color: var(--yellow); text-decoration-line: line-through; text-decoration-color: var(--yellow); text-decoration-thickness: 4px; animation: winnerGlow .8s ease-in-out infinite alternate; }
+    .cell.winner { background: rgba(255,216,61,.13); border-color: var(--yellow); animation: winnerGlow .8s ease-in-out infinite alternate; }
+    .winning-stroke { position: absolute; z-index: 5; height: 5px; border-radius: 999px; background: var(--yellow); box-shadow: 0 0 8px rgba(255,216,61,.95), 0 0 19px rgba(255,216,61,.7); pointer-events: none; transform-origin: left center; }
+    .winning-stroke[hidden] { display: none; }
     .cell:disabled { cursor: default; opacity: 1; }
     @keyframes pop { from { transform: scale(.72); opacity: .55; } to { transform: scale(1); opacity: 1; } }
     @keyframes winnerGlow { from { box-shadow: 0 0 8px rgba(255,216,61,.35); } to { box-shadow: 0 0 25px rgba(255,216,61,.8), inset 0 0 14px rgba(255,216,61,.18); } }
@@ -223,7 +225,7 @@
       try {
         const savedDifficulty = window.localStorage.getItem('velhaNuncaMaisDifficulty');
         if (['easy', 'medium', 'hard'].includes(savedDifficulty)) difficulty = savedDifficulty;
-      } catch (_) { /* O jogo continua usando o nível médio se o armazenamento estiver bloqueado. */ }
+      } catch (_) { /* O jogo continua usando o modo fácil se o armazenamento estiver bloqueado. */ }
       let selectedDifficulty = difficulty;
 
       for (let i = 0; i < 9; i++) {
@@ -236,6 +238,11 @@
         boardElement.appendChild(cell);
         cells.push(cell);
       }
+      const winningStroke = document.createElement('div');
+      winningStroke.className = 'winning-stroke';
+      winningStroke.setAttribute('aria-hidden', 'true');
+      winningStroke.hidden = true;
+      boardElement.appendChild(winningStroke);
 
       function showToast(message) {
         toast.textContent = message;
@@ -406,6 +413,32 @@
         return chooseMediumComputerMove();
       }
 
+      function renderWinningStroke() {
+        if (!gameOver || winningLine.length < 3) {
+          winningStroke.hidden = true;
+          return;
+        }
+        const firstRect = cells[winningLine[0]].getBoundingClientRect();
+        const lastRect = cells[winningLine[winningLine.length - 1]].getBoundingClientRect();
+        const boardRect = boardElement.getBoundingClientRect();
+        const x1 = firstRect.left + firstRect.width / 2 - boardRect.left;
+        const y1 = firstRect.top + firstRect.height / 2 - boardRect.top;
+        const x2 = lastRect.left + lastRect.width / 2 - boardRect.left;
+        const y2 = lastRect.top + lastRect.height / 2 - boardRect.top;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.hypot(dx, dy);
+        const ux = dx / distance;
+        const uy = dy / distance;
+        const extension = Math.min(firstRect.width, firstRect.height) * 0.48;
+        const strokeWidth = 5;
+        winningStroke.style.left = `${x1 - ux * extension}px`;
+        winningStroke.style.top = `${y1 - uy * extension - strokeWidth / 2}px`;
+        winningStroke.style.width = `${distance + extension * 2}px`;
+        winningStroke.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+        winningStroke.hidden = false;
+      }
+
       function render() {
         const nextExpiringIndex = !gameOver && difficulty === 'easy' && order[player].length >= 3
           ? order[player][0]
@@ -434,6 +467,7 @@
         scoreOName.textContent = mode === 'computer' ? 'Eu · O' : 'JOGADOR O';
         modeComputerButton.setAttribute('aria-pressed', String(mode === 'computer'));
         modeLocalButton.setAttribute('aria-pressed', String(mode === 'local'));
+        renderWinningStroke();
       }
 
       function play(index) {
@@ -575,6 +609,7 @@
       });
       difficultyButtons.forEach(button => button.addEventListener('click', () => selectDifficulty(button.dataset.difficulty)));
 
+      window.addEventListener('resize', () => { if (gameOver) renderWinningStroke(); });
       modeComputerButton.addEventListener('click', () => setMode('computer'));
       modeLocalButton.addEventListener('click', () => setMode('local'));
       document.getElementById('restart').addEventListener('click', newGame);
