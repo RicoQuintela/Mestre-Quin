@@ -221,7 +221,7 @@
       let restartTimer = 0;
       let winningStrokeTimer = 0;
       let winningStrokeVisibleUntil = 0;
-      const winningStrokeDuration = 5000;
+      const winningStrokeDuration = 3000;
       let winnerFlashTimer = 0;
       let winningLine = [];
       let wins = { computer: { X: 0, O: 0 }, local: { X: 0, O: 0 } };
@@ -580,7 +580,7 @@
           showToast(`✨ ${winnerText}`);
           showWinningStrokeBriefly();
           render();
-          restartTimer = setTimeout(newGame, 5000);
+          restartTimer = setTimeout(newGame, 3000);
           return;
         }
         playTone(mark === 'X' ? 420 : 520, 0.08);
@@ -621,7 +621,7 @@
           player = 'O';
         }
         render();
-        if (gameOver) restartTimer = setTimeout(newGame, 5000);
+        if (gameOver) restartTimer = setTimeout(newGame, 3000);
       }
 
       function startFreshGame(nextMode) {
